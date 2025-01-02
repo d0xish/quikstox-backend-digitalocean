@@ -1,0 +1,44 @@
+# Python virtual environment
+venv/
+env/
+ENV/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+stock_analyzer.log
+
+# Environment variables
+.env
+.env.*
+
+# Local testing files
+chromedriver.log
+debug.log
+
+# MyPy cache
+.mypy_cache/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Local development
+*.sqlite3
+.DS_Store
