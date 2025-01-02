@@ -214,19 +214,28 @@ class StockAnalyzer:
                     'raw': None
                 }
 
+            def round_if_number(value, decimal_places=2):
+                try:
+                    float_val = float(value)
+                    if pd.isna(float_val) or np.isnan(float_val) or np.isinf(float_val):
+                        return None
+                    return round(float_val, decimal_places)
+                except (TypeError, ValueError):
+                    return None
+
             result = {
                 'symbol': ticker,
                 'company_name': info.get('longName'),
                 'description': info.get('longBusinessSummary'),
                 'sector': info.get('sector'),
                 'industry': info.get('industry'),
-                'price': price,
-                'price_change': round(price_change, 2),
-                'price_change_percent': round(price_change_percent, 2),
-                'fifty_two_week_low': round(info.get('fiftyTwoWeekLow', 0), 2),
-                'fifty_two_week_high': round(info.get('fiftyTwoWeekHigh', 0), 2),
-                'profit_margin': round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') else None,
-                'dividend_yield': round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') else None,
+                'price': round_if_number(price),
+                'price_change': round_if_number(price_change),
+                'price_change_percent': round_if_number(price_change_percent),
+                'fifty_two_week_low': round_if_number(info.get('fiftyTwoWeekLow', 0)),
+                'fifty_two_week_high': round_if_number((info.get('fiftyTwoWeekHigh', 0)),
+                'profit_margin': round_if_number(info.get('profitMargins', 0) * 100) if info.get('profitMargins') else None,
+                'dividend_yield': round_if_number(info.get('dividendYield', 0) * 100) if info.get('dividendYield') else None,
                 'debt_ratios': {
                     'total': total_debt_to_equity,
                     'long_term': long_term_debt_to_equity,
