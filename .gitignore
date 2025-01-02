@@ -42,3 +42,6 @@ debug.log
 # Local development
 *.sqlite3
 .DS_Store
+
+# Misc
+stock_analyzer_comments.py
