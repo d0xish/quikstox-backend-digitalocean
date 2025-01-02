@@ -9,8 +9,11 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  
-        "https://quikstox.netlify.app"
+        "http://localhost:3000",
+        "http://quikstox.netlify.app",
+        "https://quikstox.netlify.app",
+        "http://quikstox.com",
+        "https://quikstox.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],
