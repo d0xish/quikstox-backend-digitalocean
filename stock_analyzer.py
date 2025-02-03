@@ -16,6 +16,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import time
 from typing import List, Dict
 import os
+from dotenv import load_dotenv
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,6 +45,30 @@ def round_if_number(value, decimal_places=2):
     except (TypeError, ValueError):
         return None
 
+def send_pushover_notification(ticker, success=True):
+    user_key = os.getenv('PUSHOVER_USER_KEY')
+    app_token = os.getenv('PUSHOVER_APP_TOKEN')
+    
+    if not user_key or not app_token:
+        print("Pushover credentials not configured")
+        return
+        
+    message = f"{'✅' if success else '❌'} Stock lookup: {ticker}"
+    
+    try:
+        requests.post(
+            "https://api.pushover.net/1/messages.json",
+            data={
+                "token": app_token,
+                "user": user_key,
+                "message": message,
+                "title": "QuikStox Alert"
+            },
+            timeout=5
+        )
+    except Exception as e:
+        print(f"Failed to send Pushover notification: {str(e)}")
+
 class StockAnalyzer:
     def __init__(self):
         self.chrome_options = Options()
@@ -61,6 +86,7 @@ class StockAnalyzer:
             info = stock.info
             
             if not info or len(info) == 0:
+                send_pushover_notification(ticker, success=False)
                 return {'error': f"Ticker '{ticker}' not found. No valid data.", 'symbol': ticker}
 
             # Get today's trading data
@@ -173,9 +199,11 @@ class StockAnalyzer:
                 },
                 'recommendations': recommendations
             }
+            send_pushover_notification(ticker, success=True)
             return result
             
         except Exception as e:
+            send_pushover_notification(ticker, success=False)
             import traceback
             print(traceback.format_exc())
             return {'error': f"Error processing {ticker}: {str(e)}", 'symbol': ticker}
