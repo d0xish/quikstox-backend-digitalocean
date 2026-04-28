@@ -105,6 +105,52 @@ Added Free Cash Flow to Firm (TTM) calculation and display feature.
 - Displays asterisk with tooltip for non-standard TTM calculations
 - Shows "Data unavailable" with error details in title attribute
 
+## Fair Value Feature
+
+### What was added
+Added Fair Value estimation using trailing EPS × average historical P/E ratio.
+
+**Backend changes** (`stock_analyzer.py`):
+- New `calculate_fair_value(stock, months=24)` module-level function
+- Filters annual Diluted EPS data to the configured lookback window
+- Fetches 5-year price history and calculates P/E at each fiscal year-end
+- Averages the P/E values and multiplies by trailing EPS
+- Returns `{value, avg_pe, periods_used, months_lookback, error}`
+- Skips years with negative or missing EPS
+- Configurable via `fair_value_months` query param (default: 24)
+
+**Backend changes** (`main.py`):
+- Added `fair_value_months: int = 24` query parameter to `/stock/{ticker}`
+
+**Frontend changes** (`StockResults.jsx`):
+- Added `formatFairValue()` helper
+- Displayed to the right of 52 Week Range
+- Shows % upside potential (green) or downside risk (red) vs current price, rounded to nearest whole percent
+- Tooltip shows avg P/E and fiscal years used
+
+## Ticker Autocomplete Feature
+
+### What was added
+Added a search-as-you-type autocomplete dropdown to the stock search bar.
+
+**Backend changes** (`main.py`):
+- New `/search?q={query}` endpoint
+- Proxies Yahoo Finance's internal autocomplete API
+- Filters results to equities only (excludes ETFs, futures, forex)
+- In-memory cache with 5-minute TTL (`_search_cache` dict)
+- Returns `[{symbol, name, exchange}]`
+
+**NGINX changes** (`/etc/nginx/sites-available/default`):
+- Added `location /search` block to allow the new endpoint through
+- Previously only `/stock/*` was permitted
+
+**Frontend changes** (`App.jsx`):
+- 200ms debounce on the search input
+- Dropdown shows below the input, sorted by Yahoo's relevance (roughly market cap)
+- Keyboard navigation: ↑↓ to move, Enter to select, Esc to clear input and refocus
+- `onMouseDown` (not `onClick`) used on suggestions to prevent input blur race condition
+- `onBlur` with 150ms timeout closes dropdown without interfering with mouse selection
+
 ## How to Deploy Manually
 
 If you need to deploy without using GitHub Actions:
