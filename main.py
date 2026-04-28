@@ -1,7 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import requests
+import time
 from stock_analyzer import StockAnalyzer
+
+_search_cache = {}
+_CACHE_TTL = 300  # 5 minutes
 
 app = FastAPI()
 
@@ -21,6 +26,40 @@ app.add_middleware(
 )
 
 analyzer = StockAnalyzer()
+
+@app.get("/search")
+async def search_tickers(q: str = ""):
+    q = q.strip().upper()
+    if not q:
+        return []
+
+    if q in _search_cache:
+        ts, results = _search_cache[q]
+        if time.time() - ts < _CACHE_TTL:
+            return results
+
+    try:
+        response = requests.get(
+            "https://query1.finance.yahoo.com/v1/finance/search",
+            params={"q": q, "quotesCount": 8, "newsCount": 0, "enableFuzzyQuery": "false", "listsCount": 0},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=5
+        )
+        quotes = response.json().get("quotes", [])
+        results = [
+            {
+                "symbol": quote["symbol"],
+                "name": quote.get("shortname") or quote.get("longname", ""),
+                "exchange": quote.get("exchDisp", ""),
+            }
+            for quote in quotes
+            if quote.get("quoteType") == "EQUITY" and "symbol" in quote
+        ]
+        _search_cache[q] = (time.time(), results)
+        return results
+    except Exception:
+        return []
+
 
 @app.get("/stock/{ticker}")
 async def get_stock_data(ticker: str, include_zacks: bool = False, fair_value_months: int = 24):
