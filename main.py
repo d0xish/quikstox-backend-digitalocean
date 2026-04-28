@@ -23,10 +23,10 @@ app.add_middleware(
 analyzer = StockAnalyzer()
 
 @app.get("/stock/{ticker}")
-async def get_stock_data(ticker: str, include_zacks: bool = False):
+async def get_stock_data(ticker: str, include_zacks: bool = False, fair_value_months: int = 24):
     try:
         # Get yfinance data
-        stock_data = analyzer.get_stock_data(ticker)
+        stock_data = analyzer.get_stock_data(ticker, fair_value_months=fair_value_months)
         
         # If stock_data has an error field, return it directly
         if isinstance(stock_data, dict) and 'error' in stock_data:

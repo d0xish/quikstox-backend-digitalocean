@@ -69,6 +69,55 @@ def send_pushover_notification(ticker, success=True):
     except Exception as e:
         print(f"Failed to send Pushover notification: {str(e)}")
 
+def calculate_fair_value(stock, months=24):
+    try:
+        fin = stock.financials
+        if fin is None or fin.empty or 'Diluted EPS' not in fin.index:
+            return {'value': None, 'avg_pe': None, 'periods_used': 0, 'months_lookback': months, 'error': 'EPS data unavailable'}
+
+        eps_row = fin.loc['Diluted EPS']
+        cutoff = pd.Timestamp.now() - pd.DateOffset(months=months)
+        eps_in_window = eps_row[eps_row.index >= cutoff]
+
+        if eps_in_window.empty:
+            return {'value': None, 'avg_pe': None, 'periods_used': 0, 'months_lookback': months, 'error': f'No fiscal year data in last {months} months'}
+
+        hist = stock.history(period="5y")
+        if hist.empty:
+            return {'value': None, 'avg_pe': None, 'periods_used': 0, 'months_lookback': months, 'error': 'No price history available'}
+        hist.index = hist.index.tz_localize(None)
+
+        pe_values = []
+        for date, eps in eps_in_window.items():
+            if not eps or pd.isna(eps) or eps <= 0:
+                continue
+            date_naive = date.tz_localize(None) if date.tzinfo else date
+            closest = hist.index.asof(date_naive)
+            if pd.isnull(closest):
+                continue
+            price = float(hist.loc[closest]['Close'])
+            pe_values.append(price / eps)
+
+        if not pe_values:
+            return {'value': None, 'avg_pe': None, 'periods_used': 0, 'months_lookback': months, 'error': 'Could not calculate historical P/E ratios'}
+
+        avg_pe = sum(pe_values) / len(pe_values)
+        trailing_eps = stock.info.get('trailingEps')
+
+        if not trailing_eps or pd.isna(trailing_eps) or trailing_eps <= 0:
+            return {'value': None, 'avg_pe': round_if_number(avg_pe, 1), 'periods_used': len(pe_values), 'months_lookback': months, 'error': 'No positive trailing EPS available'}
+
+        return {
+            'value': round_if_number(trailing_eps * avg_pe),
+            'avg_pe': round_if_number(avg_pe, 1),
+            'periods_used': len(pe_values),
+            'months_lookback': months,
+            'error': None
+        }
+    except Exception as e:
+        return {'value': None, 'avg_pe': None, 'periods_used': 0, 'months_lookback': months, 'error': f'Error: {str(e)}'}
+
+
 class StockAnalyzer:
     def __init__(self):
         self.chrome_options = Options()
@@ -80,7 +129,7 @@ class StockAnalyzer:
     
     # Your existing get_zacks_data method stays the same
 
-    def get_stock_data(self, ticker):
+    def get_stock_data(self, ticker, fair_value_months=24):
         try:
             stock = yf.Ticker(ticker)
             info = stock.info
@@ -282,6 +331,9 @@ class StockAnalyzer:
             except Exception as fcf_error:
                 fcf_result['error'] = f'Error calculating FCF: {str(fcf_error)}'
 
+            # Calculate fair value
+            fair_value_result = calculate_fair_value(stock, months=fair_value_months)
+
             # Build result object
             result = {
                 'symbol': ticker,
@@ -306,7 +358,8 @@ class StockAnalyzer:
                     'median': round_if_number(info.get('targetMedianPrice')),
                     'high': round_if_number(info.get('targetHighPrice'))
                 },
-                'recommendations': recommendations
+                'recommendations': recommendations,
+                'fair_value': fair_value_result
             }
             send_pushover_notification(ticker, success=True)
             return result
